@@ -22,6 +22,7 @@ An end-to-end data project: Python pipelines ingest public **USGS earthquake** a
 - **Heat, not tornadoes, is the deadliest storm type.** Excessive Heat caused 2,199 deaths in the loaded period.
 - **Earthquakes have no season; storms do.** Earthquakes stay between 7% and 12% of events every month, while storms peak in June at about 14%.
 - **Alaska holds about 31% of all recorded earthquakes.** The strongest event in the period was M8.8 near Kamchatka, Russia (2025).
+**More:** [Full dashboard (PDF)](docs/dashboard.pdf) | [Project carousel (PDF)](docs/carousel.pdf) | [DAX reference](docs/dax-measures.md) | [Architecture notes](docs/architecture.md)
 
 ## Architecture
 

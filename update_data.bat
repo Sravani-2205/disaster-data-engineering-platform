@@ -1,5 +1,5 @@
 @echo off
-cd /d "C:\Disaster Data Engineering & Intelligence Platform"
+cd /d "%~dp0"
 call .venv\Scripts\activate
 python run_pipelines.py
 echo.

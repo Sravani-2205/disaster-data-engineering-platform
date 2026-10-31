@@ -22,7 +22,7 @@ from src.staging.usgs_staging import stage_features
 from src.validation.usgs_validation import validate_records
 from src.loading.usgs_loader import load_records
 from src.quarantine.validation_failures import persist_rejected_records
-from src.checkpointing.usgs_checkpoint import get_checkpoint, advance_checkpoint
+from src.checkpointing.checkpoint import get_checkpoint, advance_checkpoint
 
 
 @dataclass

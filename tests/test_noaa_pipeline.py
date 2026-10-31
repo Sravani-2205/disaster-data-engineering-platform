@@ -17,7 +17,7 @@ from datetime import date, datetime, timezone
 import psycopg
 import pytest
 
-from src.checkpointing.usgs_checkpoint import get_checkpoint
+from src.checkpointing.checkpoint import get_checkpoint
 from src.ingestion.noaa_client import NOAARequestError
 from src.loading.noaa_loader import LoadError
 from src.quarantine.validation_failures import QuarantineError
@@ -316,7 +316,7 @@ def test_crash_before_checkpoint_advance_reprocesses_and_allows_duplicate_quaran
     raw = _build_gzip_csv([_valid_row("1001"), _invalid_row()])
     _mock_fetch(monkeypatch, raw, creation)
 
-    from src.checkpointing.usgs_checkpoint import advance_checkpoint as real_advance
+    from src.checkpointing.checkpoint import advance_checkpoint as real_advance
 
     calls: list[int] = []
 
@@ -354,7 +354,7 @@ def test_crash_before_checkpoint_advance_reprocesses_and_allows_duplicate_quaran
 
 
 def test_noaa_checkpoint_does_not_affect_usgs_checkpoint(conn, monkeypatch):
-    from src.checkpointing.usgs_checkpoint import advance_checkpoint
+    from src.checkpointing.checkpoint import advance_checkpoint
 
     usgs_time = datetime(2018, 1, 1, tzinfo=timezone.utc)
     advance_checkpoint(conn, usgs_time, source="usgs")

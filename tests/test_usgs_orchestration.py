@@ -15,7 +15,7 @@ import psycopg
 import pytest
 
 from src.orchestration.usgs_pipeline import run_usgs_pipeline
-from src.checkpointing.usgs_checkpoint import get_checkpoint
+from src.checkpointing.checkpoint import get_checkpoint
 from src.loading.usgs_loader import LoadError
 
 

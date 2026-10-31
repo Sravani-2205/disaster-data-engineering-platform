@@ -1,5 +1,5 @@
 """
-test_usgs_checkpoint.py
+test_checkpoint.py
 
 Tests for get_checkpoint() / advance_checkpoint() against a real
 PostgreSQL test database (disaster_data_test). advance_checkpoint()
@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import psycopg
 import pytest
 
-from src.checkpointing.usgs_checkpoint import get_checkpoint, advance_checkpoint
+from src.checkpointing.checkpoint import get_checkpoint, advance_checkpoint
 
 
 TEST_DB_DSN = (

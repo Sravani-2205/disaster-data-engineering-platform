@@ -15,7 +15,7 @@ from datetime import date, datetime, time, timezone
 
 import psycopg
 
-from src.checkpointing.usgs_checkpoint import advance_checkpoint, get_checkpoint
+from src.checkpointing.checkpoint import advance_checkpoint, get_checkpoint
 from src.ingestion.noaa_client import list_storm_events_files
 from src.ingestion.noaa_ingest import run_noaa_ingestion
 from src.loading.noaa_loader import load_records

@@ -1,10 +1,11 @@
 """
-usgs_checkpoint.py
+checkpoint.py
 
 Responsibility: read and advance the ingestion checkpoint for a
-source. The checkpoint represents the end_time of the most recent
-ingestion window that was successfully fetched, staged, validated,
-and loaded into PostgreSQL.
+source. Shared by the USGS and NOAA pipelines (one row per source).
+For USGS the checkpoint is the end_time of the most recent window
+that was successfully fetched, staged, validated and loaded; for
+NOAA it is the creation date of the last yearly file loaded.
 
 advance_checkpoint() must only be called after load_records() has
 already succeeded. This module has no knowledge of the pipeline

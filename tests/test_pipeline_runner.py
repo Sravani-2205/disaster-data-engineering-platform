@@ -23,7 +23,7 @@ import psycopg
 import pytest
 
 from src.orchestration.pipeline_runner import run_all_pipelines
-from src.checkpointing.usgs_checkpoint import get_checkpoint
+from src.checkpointing.checkpoint import get_checkpoint
 from src.loading.usgs_loader import LoadError as USGSLoadError
 from src.loading.noaa_loader import LoadError as NOAALoadError
 

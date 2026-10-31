@@ -12,8 +12,7 @@ The report has four pages (Overview, Earthquakes, Storms, Platform). Every numbe
 6. [Dynamic text](#dynamic-text)
 7. [Comparing the two sources](#comparing-the-two-sources)
 8. [Insight lines](#insight-lines)
-9. [Helper measures](#helper-measures)
-10. [Lessons learned](#lessons-learned)
+9. [Lessons learned](#lessons-learned)
 
 ## Data model
 
@@ -326,38 +325,6 @@ RETURN
     "Storms peak in " & MAXX(stormTop, DateTable[Month Short]) &
     " (" & FORMAT(MAXX(stormTop, [s]), "0%") & " of events); earthquakes stay between " &
     FORMAT(MINX(tbl, [q]), "0%") & " and " & FORMAT(MAXX(tbl, [q]), "0%") & " every month"
-```
-
-## Helper measures
-
-These come from earlier versions of the Overview coverage strip. The current report uses the `Coverage` measures above, so these may now be unused and can be removed when tidying the model.
-
-```dax
-Max Month Name =
-VAR MaxSort = MAX ( DateTable[MonthSort] )
-RETURN
-LOOKUPVALUE ( DateTable[MonthName], DateTable[MonthSort], MaxSort )
-
-Min Month Name =
-VAR MinSort = MIN ( DateTable[MonthSort] )
-RETURN
-LOOKUPVALUE ( DateTable[MonthName], DateTable[MonthSort], MinSort )
-
-EQ Max Month =
-VAR MaxDate = MAX ( Earthquakes[time] )
-RETURN FORMAT ( MaxDate, "MMM YYYY" )
-
-EQ Min Month =
-VAR MinDate = MIN ( Earthquakes[time] )
-RETURN FORMAT ( MinDate, "MMM YYYY" )
-
-Storm Max Month =
-VAR MaxDate = MAX ( StormEvents[begin_timestamp] )
-RETURN FORMAT ( MaxDate, "MMM YYYY" )
-
-Storm Min Month =
-VAR MinDate = MIN ( StormEvents[begin_timestamp] )
-RETURN FORMAT ( MinDate, "MMM YYYY" )
 ```
 
 ## Lessons learned

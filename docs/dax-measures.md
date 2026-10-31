@@ -5,13 +5,15 @@ The report has four pages (Overview, Earthquakes, Storms, Platform). Every numbe
 ## Contents
 
 1. [Data model](#data-model)
-2. [Calculated columns](#calculated-columns)
-3. [Core measures](#core-measures)
-4. [Dynamic text](#dynamic-text)
-5. [Comparing the two sources](#comparing-the-two-sources)
-6. [Insight lines](#insight-lines)
-7. [Helper measures](#helper-measures)
-8. [Lessons learned](#lessons-learned)
+2. [Power Query date steps](#power-query-date-steps)
+3. [Date table](#date-table)
+4. [Calculated columns](#calculated-columns)
+5. [Core measures](#core-measures)
+6. [Dynamic text](#dynamic-text)
+7. [Comparing the two sources](#comparing-the-two-sources)
+8. [Insight lines](#insight-lines)
+9. [Helper measures](#helper-measures)
+10. [Lessons learned](#lessons-learned)
 
 ## Data model
 
@@ -22,8 +24,42 @@ The report has four pages (Overview, Earthquakes, Storms, Platform). Every numbe
 | `DateTable` | Shared date dimension used by every page |
 
 - Both fact tables relate many-to-one to `DateTable[Date]` through a **date-only** column (`event_date_only`, `begin_date_only`), never a timestamp.
+- Both date-only columns are **UTC dates**. Power Query converts each timestamp to UTC before taking the date (see *Power Query date steps* below), so the model does not depend on the time zone of the computer that refreshes it.
 - Cross-filter direction is single, from `DateTable` to the fact tables.
 - The two sources are **not** joined to each other. There is no defensible geographic or temporal key between USGS and NOAA records, so the report compares patterns, not individual events.
+
+## Power Query date steps
+
+Power BI converts PostgreSQL `timestamptz` values to the refreshing computer's local time. To keep dates in UTC, both queries convert explicitly:
+
+```m
+// StormEvents: last step (Changed Type1)
+= Table.TransformColumns(#"Renamed Columns", {
+    {"begin_timestamp", each if _ = null then null else DateTimeZone.RemoveZone(DateTimeZone.ToUtc(DateTimeZone.From(_))), type datetime},
+    {"begin_date_only", each if _ = null then null else DateTime.Date(DateTimeZone.RemoveZone(DateTimeZone.ToUtc(DateTimeZone.From(_)))), type date}
+})
+
+// Earthquakes: event_date_only is a copy of `time` (Duplicated Column), then
+= Table.TransformColumns(Table.RenameColumns(#"Duplicated Column", {{"event_date - Copy", "event_date_only"}}), {{"event_date_only", each if _ = null then null else DateTime.Date(DateTimeZone.RemoveZone(DateTimeZone.ToUtc(DateTimeZone.From(_)))), type date}})
+```
+
+## Date table
+
+`DateTable` is a calculated table that spans the first to the last event day across both sources, so it grows with every refresh:
+
+```dax
+DateTable =
+VAR MinEqDate = MIN ( Earthquakes[event_date_only] )
+VAR MaxEqDate = MAX ( Earthquakes[event_date_only] )
+VAR MinStormDate = MIN ( StormEvents[begin_date_only] )
+VAR MaxStormDate = MAX ( StormEvents[begin_date_only] )
+VAR OverallMin = MIN ( MinEqDate, MinStormDate )
+VAR OverallMax = MAX ( MaxEqDate, MaxStormDate )
+RETURN
+CALENDAR ( DATE ( YEAR ( OverallMin ), MONTH ( OverallMin ), DAY ( OverallMin ) ), DATE ( YEAR ( OverallMax ), MONTH ( OverallMax ), DAY ( OverallMax ) ) )
+```
+
+It reads the same UTC date-only columns the relationships use, so its first and last days always match the events.
 
 ## Calculated columns
 
@@ -153,7 +189,7 @@ The coverage and freshness lines move forward automatically whenever the pipelin
 
 ## Comparing the two sources
 
-Raw counts are not comparable (about 1.7M earthquakes against 693K storm events), so each source is indexed to its own 2016 value:
+Raw counts are not comparable (about 1.7M earthquakes against 704K storm events), so each source is indexed to its own 2016 value:
 
 ```dax
 Earthquake Index =
@@ -335,3 +371,5 @@ RETURN FORMAT ( MinDate, "MMM YYYY" )
 **4. Check generated text against the visual beside it.** Every insight line was compared with its chart before publishing.
 
 **5. DAX gotcha.** A variable called `top` is rejected as a reserved word, so ranked rows are stored in `topRow`.
+
+**6. Dates need one time zone everywhere.** Power BI turns PostgreSQL `timestamptz` values into the local time of the computer refreshing the report (IST here), so events after 18:30 UTC landed on the next day. Checking known events against their UTC times in PostgreSQL exposed it. The fix was to convert to UTC in Power Query before taking the date, build the earthquake date from `time` instead of the view's `event_date`, and build `DateTable` from the same UTC date columns. When the view's `event_date` changed, a relationship still pointing at that timestamp column put every earthquake in a blank year, which is lesson 1 again.

@@ -1,9 +1,8 @@
 -- sql/create_earthquakes_table.sql
 --
--- Creates the analytical earthquakes table.
--- Source: USGS (NOAA planned for a later milestone).
--- This table holds clean/validated records only -- raw JSON stays
--- on disk, staging is in-memory, rejected records are not persisted yet.
+-- Creates the analytical earthquakes table (source: USGS).
+-- This table holds validated records only. Staging is in-memory,
+-- and rejected records are stored in validation_failures.
 
 CREATE TABLE earthquakes (
     source        TEXT NOT NULL,

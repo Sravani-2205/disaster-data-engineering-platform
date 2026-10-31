@@ -39,7 +39,8 @@ The USGS pipeline separates two ideas on purpose: `starttime` bounds how far bac
 
 ## 5. Raw Data Layer
 
-Downloaded source files are kept locally under `data/raw/` and are excluded from git. Parsing starts from the raw bytes, so a run is reproducible from the file that was downloaded.
+- **NOAA:** each downloaded yearly file is saved unchanged under `data/raw/noaa/` (excluded from git), and parsing starts from that saved file, so a NOAA run is reproducible from exactly the file it used. This matters because NCEI replaces a year's file when it revises it, and the older version is no longer published.
+- **USGS:** responses are staged directly from the API reply and are not saved to disk. The USGS catalog can be queried again at any time (it returns each event's current version), so a raw copy adds little for this project. `src/ingestion/usgs_ingest.py` can save USGS responses, but the pipeline does not currently use it.
 
 ## 6. Staging Layer
 

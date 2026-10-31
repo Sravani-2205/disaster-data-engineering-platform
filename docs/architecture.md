@@ -83,7 +83,7 @@ The checkpoint is one row per source in `ingestion_checkpoints`, holding the las
 
 ## 12. Testing Strategy
 
-The suite has 155+ automated tests with pytest, covering each layer separately (clients, ingestion, staging, validation, loading, quarantine, checkpointing) plus the orchestration and the analytical views. Integration tests run against a real PostgreSQL instance, with the password supplied through the `POSTGRES_PASSWORD` environment variable.
+The suite has 160 automated tests with pytest, covering each layer separately (clients, ingestion, staging, validation, loading, quarantine, checkpointing) plus the orchestration and the analytical views. Integration tests run against a real PostgreSQL instance, with the password supplied through the `POSTGRES_PASSWORD` environment variable.
 
 ## 13. Engineering Decisions
 
@@ -92,5 +92,5 @@ The suite has 155+ automated tests with pytest, covering each layer separately (
 - **Source isolation at one point.** The runner is the only place that swallows exceptions, so failures stay visible everywhere else.
 - **Windowed backfills.** When scaling from a two-day sample to ten years, USGS's 20,000-event request cap broke a dense window (the 2019 Ridgecrest earthquake sequence). The backfill script now counts events first and splits any window over the limit.
 - **Checkpoint reset for NOAA backfills.** Because the checkpoint is not per year, older years would be skipped. The backfill clears the NOAA checkpoint before each year, which is safe because loads are idempotent.
-- **Timezone discipline.** USGS timestamps are normalized to UTC. Yearly counts checked in IST differed slightly from UTC until grouped in UTC.
+- **Timezone discipline.** USGS timestamps are normalized to UTC. NOAA times are local to each county, so `vw_storm_events_enriched` subtracts the `cz_timezone` offset (e.g. `CST-6`, `GST10`) to get UTC. Views cut days with `date_trunc('day', ..., 'UTC')`, so results do not depend on the session time zone, and the Power BI model converts to UTC before taking the date. Earlier versions cut days in the analyst's local time (IST), which moved events after 18:30 UTC to the next day; regression tests now cover this.
 - **No scheduler.** Updates run on demand with one command (`update_data.bat`), then a manual Power BI refresh. A scheduled run would be a natural next step.

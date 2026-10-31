@@ -2,9 +2,9 @@
 
 An end-to-end data project: Python pipelines ingest public **USGS earthquake** and **NOAA storm** data into **PostgreSQL**, and a 4-page **Power BI** dashboard turns ten years of it (2016 to 2026) into insights.
 
-- **1.7M** earthquakes (USGS) and **693K** storm events (NOAA) loaded
+- **1.7M** earthquakes (USGS) and **704K** storm events (NOAA) loaded
 - Incremental, idempotent pipelines with a quarantine for bad records
-- **155+ automated tests**
+- **160 automated tests**, including regression tests for time-zone handling
 - A dark-theme Power BI report with dynamic, DAX-driven insights
 
 ## Dashboard
@@ -19,9 +19,10 @@ An end-to-end data project: Python pipelines ingest public **USGS earthquake** a
 
 ### What the data showed
 
-- **Heat, not tornadoes, is the deadliest storm type.** Excessive Heat caused 2,199 deaths in the loaded period.
-- **Earthquakes have no season; storms do.** Earthquakes stay between 7% and 12% of events every month, while storms peak in June at about 14%.
+- **Heat, not tornadoes, is the deadliest storm type.** Excessive Heat caused 2,247 deaths in the loaded period.
+- **Earthquakes have no season; storms do.** Earthquakes stay between 7% and 12% of events every month, while storms peak in July at about 15%. Complete years only (2016 to 2025) give the same peak month.
 - **Alaska holds about 31% of all recorded earthquakes.** The strongest event in the period was M8.8 near Kamchatka, Russia (2025).
+
 **More:** [Full dashboard (PDF)](docs/dashboard.pdf) | [Project carousel (PDF)](docs/carousel.pdf) | [DAX reference](docs/dax-measures.md) | [Architecture notes](docs/architecture.md)
 
 ## Architecture
@@ -52,6 +53,7 @@ NOAA files┘                         │          │
 - **Idempotent loads.** Re-running a window updates or skips existing rows. This was verified when a backfill re-encountered already-loaded events.
 - **API limits handled.** USGS caps a single request at 20,000 events, so large historical loads split date windows (the backfill scripts count events first and split dense periods).
 - **Analytical views.** Four PostgreSQL views feed the dashboard.
+- **Time zones handled explicitly.** NOAA records storm times in each county's local time, so the views convert them to UTC using the `cz_timezone` offset. Days are cut at UTC midnight in both SQL and Power BI, so results do not depend on the database session's or the analyst's time zone. Regression tests run the views in an India-time session to prove it.
 
 ## Project structure
 
@@ -66,7 +68,7 @@ src/
   orchestration/   per-source pipelines and the integration runner
 config/            source configuration
 sql/               table and analytical view definitions
-tests/             155+ automated tests
+tests/             160 automated tests
 run_pipelines.py   run both pipelines incrementally
 update_data.bat    double-click wrapper for Windows
 backfill_*.py      one-off historical loaders
@@ -83,7 +85,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Create the database and tables:
+Create the database and tables (repeat with `disaster_data_test` for the test suite):
 
 ```bash
 createdb -U postgres disaster_data
@@ -105,7 +107,7 @@ set POSTGRES_PASSWORD=your_password      # Windows
 
 ```bash
 python run_pipelines.py     # incremental run of both sources
-pytest                      # run the test suite
+python -m pytest            # run the test suite (needs disaster_data_test)
 ```
 
 On Windows you can also double-click `update_data.bat`, then click **Refresh** in Power BI.
@@ -117,7 +119,7 @@ The first load of a long date range should use the backfill scripts, which split
 - **No scheduler.** Updates are one click (`update_data.bat`) and the Power BI refresh is manual, which suits a portfolio project.
 - **The two sources are analyzed independently.** There is no defensible geographic or temporal join key between USGS and NOAA records, so the dashboard compares patterns, not individual events.
 - **NOAA checkpoint is source-scoped, not per year.** Multi-year backfills therefore reset the NOAA checkpoint before each year.
-- **Partial latest year.** The latest year is year-to-date and grows as the pipeline runs.
+- **Partial latest year.** The latest year is year-to-date and grows as the pipeline runs. NOAA publishes storm data a few months behind, so storm data ends earlier than earthquake data.
 
 ## Tech stack
 

@@ -5,8 +5,11 @@
 --
 -- begin_date_time is stored as raw NOAA text (e.g. "01-JAN-19
 -- 00:00:00") by deliberate Stage C design -- it is parsed here,
--- at the analytical layer, rather than upstream. A value that
--- fails to parse yields NULL for begin_timestamp rather than
+-- at the analytical layer, rather than upstream. NOAA writes it in
+-- the event's LOCAL time; cz_timezone carries the UTC offset as a
+-- trailing number (e.g. "CST-6" = UTC-6, "GST10" = UTC+10). The
+-- view subtracts that offset to get a true UTC begin_timestamp.
+-- A time or zone that fails to parse yields NULL rather than
 -- erroring the view.
 --
 -- damage_property / damage_crops are raw NOAA strings (e.g.
@@ -18,7 +21,7 @@
 -- primary key -- vw_storm_events_enriched preserves this grain;
 -- vw_storm_daily_summary aggregates it explicitly.
 
-CREATE VIEW vw_storm_events_enriched AS
+CREATE OR REPLACE VIEW vw_storm_events_enriched AS
 SELECT
     source,
     event_id,
@@ -28,7 +31,11 @@ SELECT
     end_date_time,
     (CASE
         WHEN begin_date_time ~ '^\d{2}-[A-Z]{3}-\d{2} \d{2}:\d{2}:\d{2}$'
-            THEN (to_timestamp(begin_date_time, 'DD-MON-YY HH24:MI:SS')::timestamp) AT TIME ZONE 'UTC'
+         AND cz_timezone ~ '-?\d{1,2}$'
+            THEN (
+                to_timestamp(begin_date_time, 'DD-MON-YY HH24:MI:SS')::timestamp
+                - substring(cz_timezone from '(-?\d{1,2})$')::int * INTERVAL '1 hour'
+            ) AT TIME ZONE 'UTC'
         ELSE NULL
     END) AS begin_timestamp,
     injuries_direct,
@@ -67,7 +74,7 @@ SELECT
     tor_f_scale
 FROM storm_events;
 
-CREATE VIEW vw_storm_daily_summary AS
+CREATE OR REPLACE VIEW vw_storm_daily_summary AS
 SELECT
     date_trunc('day', begin_timestamp) AS event_date,
     state,

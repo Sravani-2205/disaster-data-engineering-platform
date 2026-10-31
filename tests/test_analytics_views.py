@@ -60,6 +60,7 @@ def insert_storm_event(
     deaths_indirect=None,
     damage_property=None,
     damage_crops=None,
+    cz_timezone="CST-6",
 ):
     with conn.cursor() as cur:
         cur.execute(
@@ -67,14 +68,14 @@ def insert_storm_event(
             INSERT INTO storm_events
                 (source, event_id, state, event_type, begin_date_time,
                  injuries_direct, injuries_indirect, deaths_direct, deaths_indirect,
-                 damage_property, damage_crops,
+                 damage_property, damage_crops, cz_timezone,
                  source_file_year, source_file_creation_date, ingested_at)
-            VALUES ('noaa', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2019, '2019-01-01', %s)
+            VALUES ('noaa', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2019, '2019-01-01', %s)
             """,
             (
                 event_id, state, event_type, begin_date_time,
                 injuries_direct, injuries_indirect, deaths_direct, deaths_indirect,
-                damage_property, damage_crops,
+                damage_property, damage_crops, cz_timezone,
                 datetime.now(timezone.utc),
             ),
         )
@@ -132,16 +133,41 @@ def test_earthquake_daily_summary_groups_separate_days_independently(conn):
 
 # ---------- storm events ----------
 
-def test_storm_begin_timestamp_parses_valid_format(conn):
-    insert_storm_event(conn, "se-1", "TEXAS", "Tornado", "01-JAN-19 00:00:00")
+def test_storm_begin_timestamp_converts_local_time_to_utc(conn):
+    # NOAA begin_date_time is LOCAL time. CST-6 means UTC-6, so
+    # midnight local is 06:00 UTC.
+    insert_storm_event(conn, "se-1", "TEXAS", "Tornado", "01-JAN-19 00:00:00", cz_timezone="CST-6")
 
     rows = fetch_all(conn, "SELECT begin_timestamp FROM vw_storm_events_enriched")
     parsed = rows[0]["begin_timestamp"]
-    # begin_timestamp is anchored to UTC by fixed convention in the
-    # view (AT TIME ZONE 'UTC'), independent of session timezone --
-    # so the literal wall-clock string should map directly to the
-    # same UTC instant regardless of where this test runs.
+    assert parsed.astimezone(timezone.utc) == datetime(2019, 1, 1, 6, 0, 0, tzinfo=timezone.utc)
+
+
+def test_storm_begin_timestamp_evening_event_rolls_into_next_utc_day(conn):
+    # 19:30 CST on 20 June is 01:30 UTC on 21 June.
+    insert_storm_event(conn, "se-1", "TEXAS", "Tornado", "20-JUN-20 19:30:00", cz_timezone="CST-6")
+
+    rows = fetch_all(conn, "SELECT begin_timestamp FROM vw_storm_events_enriched")
+    parsed = rows[0]["begin_timestamp"]
+    assert parsed.astimezone(timezone.utc) == datetime(2020, 6, 21, 1, 30, 0, tzinfo=timezone.utc)
+
+
+def test_storm_begin_timestamp_handles_positive_offset(conn):
+    # GST10 (Guam) is UTC+10, so 10:00 local is 00:00 UTC.
+    insert_storm_event(conn, "se-1", "GUAM", "Typhoon", "01-JAN-19 10:00:00", cz_timezone="GST10")
+
+    rows = fetch_all(conn, "SELECT begin_timestamp FROM vw_storm_events_enriched")
+    parsed = rows[0]["begin_timestamp"]
     assert parsed.astimezone(timezone.utc) == datetime(2019, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+
+def test_storm_begin_timestamp_missing_timezone_yields_null(conn):
+    # Without a zone the true UTC instant is unknown, so the view
+    # returns NULL instead of guessing.
+    insert_storm_event(conn, "se-1", "TEXAS", "Tornado", "01-JAN-19 00:00:00", cz_timezone=None)
+
+    rows = fetch_all(conn, "SELECT begin_timestamp FROM vw_storm_events_enriched")
+    assert rows[0]["begin_timestamp"] is None
 
 def test_storm_begin_timestamp_malformed_yields_null_not_error(conn):
     insert_storm_event(conn, "se-bad", "TEXAS", "Tornado", "not-a-date")

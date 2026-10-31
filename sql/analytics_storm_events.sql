@@ -12,6 +12,9 @@
 -- A time or zone that fails to parse yields NULL rather than
 -- erroring the view.
 --
+-- vw_storm_daily_summary cuts days in UTC (date_trunc(..., 'UTC')),
+-- independent of the database session's time zone.
+--
 -- damage_property / damage_crops are raw NOAA strings (e.g.
 -- "10.00K", "25.00M", "1.50B") by deliberate Stage C design.
 -- Parsed to numeric dollars here; unparseable/unexpected values
@@ -76,7 +79,7 @@ FROM storm_events;
 
 CREATE OR REPLACE VIEW vw_storm_daily_summary AS
 SELECT
-    date_trunc('day', begin_timestamp) AS event_date,
+    date_trunc('day', begin_timestamp, 'UTC') AS event_date,
     state,
     event_type,
     COUNT(*) AS event_count,
@@ -86,4 +89,4 @@ SELECT
     SUM(damage_crops_usd) AS total_crop_damage_usd,
     COUNT(*) FILTER (WHERE total_deaths > 0 OR total_injuries > 0) AS severe_event_count
 FROM vw_storm_events_enriched
-GROUP BY date_trunc('day', begin_timestamp), state, event_type;
+GROUP BY date_trunc('day', begin_timestamp, 'UTC'), state, event_type;

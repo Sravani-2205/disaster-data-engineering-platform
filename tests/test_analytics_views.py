@@ -131,6 +131,22 @@ def test_earthquake_daily_summary_groups_separate_days_independently(conn):
     assert all(r["event_count"] == 1 for r in rows)
 
 
+def test_earthquake_days_are_cut_in_utc_not_session_time_zone(conn):
+    # 23:58 UTC on 23 Feb and 00:42 UTC on 24 Feb are different UTC
+    # days. In an India-time session (UTC+05:30) both fall on 24 Feb,
+    # so this fails if the views cut days in the session time zone.
+    insert_earthquake(conn, "eq-late", datetime(2020, 2, 23, 23, 58, tzinfo=timezone.utc), magnitude=4.0)
+    insert_earthquake(conn, "eq-early", datetime(2020, 2, 24, 0, 42, tzinfo=timezone.utc), magnitude=4.0)
+    conn.execute("SET TIME ZONE 'Asia/Kolkata'")
+
+    rows = fetch_all(conn, "SELECT event_id, event_date FROM vw_earthquakes_enriched ORDER BY event_id")
+    result = {r["event_id"]: r["event_date"].astimezone(timezone.utc) for r in rows}
+    assert result["eq-late"] == datetime(2020, 2, 23, tzinfo=timezone.utc)
+    assert result["eq-early"] == datetime(2020, 2, 24, tzinfo=timezone.utc)
+
+    summary = fetch_all(conn, "SELECT event_count FROM vw_earthquake_daily_summary")
+    assert len(summary) == 2
+
 # ---------- storm events ----------
 
 def test_storm_begin_timestamp_converts_local_time_to_utc(conn):
@@ -243,3 +259,14 @@ def test_storm_daily_summary_no_double_counting_across_grain(conn):
     oklahoma_hail = next(r for r in rows if r["state"] == "OKLAHOMA")
     assert oklahoma_hail["event_count"] == 1
     assert oklahoma_hail["severe_event_count"] == 0
+
+
+def test_storm_daily_summary_cuts_days_in_utc_not_session_time_zone(conn):
+    # 19:30 CST on 20 June is 01:30 UTC on 21 June. In an India-time
+    # session that instant is 21 June 07:00, whose local midnight is
+    # 20 June 18:30 UTC -- the wrong day boundary.
+    insert_storm_event(conn, "se-1", "TEXAS", "Tornado", "20-JUN-20 19:30:00", cz_timezone="CST-6")
+    conn.execute("SET TIME ZONE 'Asia/Kolkata'")
+
+    rows = fetch_all(conn, "SELECT event_date FROM vw_storm_daily_summary")
+    assert rows[0]["event_date"].astimezone(timezone.utc) == datetime(2020, 6, 21, tzinfo=timezone.utc)

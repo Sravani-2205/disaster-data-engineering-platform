@@ -6,11 +6,14 @@
 -- these views preserve that grain except where explicitly
 -- aggregating (vw_earthquake_daily_summary).
 --
+-- Day boundaries: date_trunc(..., 'UTC') cuts days in UTC, so
+-- event_date does not depend on the database session's time zone.
+--
 -- NULL handling: magnitude/depth NULLs are preserved as unknown,
 -- never coalesced to zero -- an earthquake with unknown magnitude
 -- is not the same as a magnitude-zero event.
 
-CREATE VIEW vw_earthquakes_enriched AS
+CREATE OR REPLACE VIEW vw_earthquakes_enriched AS
 SELECT
     source,
     event_id,
@@ -21,17 +24,17 @@ SELECT
     latitude,
     longitude,
     depth,
-    date_trunc('day', time) AS event_date,
+    date_trunc('day', time, 'UTC') AS event_date,
     (magnitude IS NOT NULL AND magnitude >= 6.0) AS is_significant
 FROM earthquakes;
 
-CREATE VIEW vw_earthquake_daily_summary AS
+CREATE OR REPLACE VIEW vw_earthquake_daily_summary AS
 SELECT
-    date_trunc('day', time) AS event_date,
+    date_trunc('day', time, 'UTC') AS event_date,
     COUNT(*) AS event_count,
     COUNT(*) FILTER (WHERE magnitude IS NOT NULL AND magnitude >= 6.0) AS significant_count,
     AVG(magnitude) AS avg_magnitude,
     MAX(magnitude) AS max_magnitude,
     AVG(depth) AS avg_depth
 FROM earthquakes
-GROUP BY date_trunc('day', time);
+GROUP BY date_trunc('day', time, 'UTC');
